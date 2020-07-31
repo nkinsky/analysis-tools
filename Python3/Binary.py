@@ -111,10 +111,14 @@ def Load(Folder, Processor=None, Experiment=None, Recording=None, Unit='uV', Cha
 
     Data, Rate = {}, {}
     for F,File in enumerate(Files):
-        Exp, Rec, _, Proc = File.split('/')[-5:-1]
+        try:
+            Exp, Rec, _, Proc = File.split('/')[-5:-1]
+        except ValueError:  # for windows machines use the correct delimiter
+            Exp, Rec, _, Proc = File.split('\\')[-5:-1]                  
+  
         Exp = str(int(Exp[10:])-1)
         Rec = str(int(Rec[9:])-1)
-        Proc = Proc.split('.')[0].split('-')[-1]
+        Proc = Proc.split('.')[-2].split('-')[-1]
         if '_' in Proc: Proc = Proc.split('_')[0]
 
         if Proc not in Data.keys(): Data[Proc], Rate[Proc] = {}, {}
@@ -159,3 +163,7 @@ def Load(Folder, Processor=None, Experiment=None, Recording=None, Unit='uV', Cha
 
     return(Data, Rate)
 
+
+if __name__ == '__main__':
+     Data, Rate = Load(r'C:\OpenEphys\Rat613placestimtest__2020-07-29_16-51-08')
+    

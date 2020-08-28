@@ -76,6 +76,20 @@ from ast import literal_eval
 from glob import glob
 
 
+def LoadChannelMapFromText(txtfile):
+    """
+    Takes channel map for OpenEphys GUI and imports it as a dictionary for easy reading in python.
+    :param txtfile:
+    :return:
+    """
+    file = open(txtfile, 'r')
+    # Read in file, removing \n and extra spaces for readability and true->True for correct dictionary import
+    contents = ''.join(file.read().splitlines()).replace(' ', '').replace('true', 'True').replace('false', 'False')
+    chan_map_dict = literal_eval(contents)
+
+    return chan_map_dict
+
+
 def ApplyChannelMap(Data, ChannelMap):
     print('Retrieving channels according to ChannelMap... ', end='')
     for R, Rec in Data.items():
@@ -104,7 +118,7 @@ def BitsToVolts(Data, ChInfo, Unit):
     return(Data)
 
 
-def Load(Folder, Processor=None, Experiment=None, Recording=None, Unit='uV', ChannelMap=[]):
+def Load(Folder, Processor=None, Experiment=None, Recording=None, Unit='uV', ChannelMap=[], mode='r+'):
     Files = sorted(glob(Folder+'/**/*.dat', recursive=True))
     InfoFiles = sorted(glob(Folder+'/*/*/structure.oebin'))
 
@@ -134,7 +148,7 @@ def Load(Folder, Processor=None, Experiment=None, Recording=None, Unit='uV', Cha
 
         print('Loading recording', int(Rec)+1, '...')
         if Exp not in Data[Proc]: Data[Proc][Exp] = {}
-        Data[Proc][Exp][Rec] = np.memmap(File, dtype='int16')
+        Data[Proc][Exp][Rec] = np.memmap(File, dtype='int16', mode=mode)
 
 
         Info = literal_eval(open(InfoFiles[F]).read())
@@ -157,7 +171,8 @@ def Load(Folder, Processor=None, Experiment=None, Recording=None, Unit='uV', Cha
                 ChInfo = Info['continuous'][ProcIndex]['channels']
                 Data[Proc][Exp] = BitsToVolts(Data[Proc][Exp], ChInfo, Unit)
 
-            if ChannelMap: Data[Proc][Exp] = ApplyChannelMap(Data[Proc][Exp], ChannelMap)
+            if ChannelMap.any():
+                Data[Proc][Exp] = ApplyChannelMap(Data[Proc][Exp], ChannelMap)
 
     print('Done.')
 

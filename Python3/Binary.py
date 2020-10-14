@@ -174,7 +174,7 @@ def Load(Folder, Processor=None, Experiment=None, Recording=None, Unit='uV', Cha
                 ChInfo = Info['continuous'][ProcIndex]['channels']
                 Data[Proc][Exp] = BitsToVolts(Data[Proc][Exp], ChInfo, Unit)
 
-            if ChannelMap.any():
+            if len(ChannelMap) > 0:
                 Data[Proc][Exp] = ApplyChannelMap(Data[Proc][Exp], ChannelMap)
 
     print('Done.')

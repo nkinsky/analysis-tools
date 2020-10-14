@@ -74,6 +74,8 @@ Warning:
 import numpy as np
 from ast import literal_eval
 from glob import glob
+import re
+import os
 
 
 def LoadChannelMapFromText(txtfile):
@@ -122,9 +124,10 @@ def Load(Folder, Processor=None, Experiment=None, Recording=None, Unit='uV', Cha
     Files = sorted(glob(Folder+'/**/*.dat', recursive=True))
     InfoFiles = sorted(glob(Folder+'/*/*/structure.oebin'))
 
-
     Data, Rate = {}, {}
     for F,File in enumerate(Files):
+        if re.search('spyking_circus', File) is not None:  # don't run this for .dat files in secondary folders...
+            continue
         try:
             Exp, Rec, _, Proc = File.split('/')[-5:-1]
         except ValueError:  # for windows machines use the correct delimiter
@@ -179,6 +182,53 @@ def Load(Folder, Processor=None, Experiment=None, Recording=None, Unit='uV', Cha
     return(Data, Rate)
 
 
+def LoadTTLEvents(Folder, Processor=None, Experiment=None, Recording=None, TTLport=1, mode='r+'):
+    """Load TTL in events recorded in binary format."""
+    Files = sorted(glob(Folder + '/**/TTL_' + str(TTLport) + '/*.npy', recursive=True))
+    # InfoFiles = sorted(glob(Folder + '/*/*/structure.oebin'))
+
+    event_data, timing_data = {}, {}
+    print('Loading events from recording on TTL', TTLport, '...')
+    for F, File in enumerate(Files):
+        try:
+            Exp, Rec, _, Proc, _, npy_file = File.split('/')[-6:]
+            sync_file = open(os.path.join(
+                File.split('/' + Exp + '/' + Rec)[0] + '/' + Exp + '/' + Rec, 'sync_messages.txt')).readlines()
+        except ValueError:  # for windows machines use the correct delimiter
+            Exp, Rec, _, Proc, _, npy_file = File.split('\\')[-6:]
+            sync_file = open(os.path.join(
+                File.split('\\' + Exp + '\\' + Rec)[0] + '\\' + Exp + '\\' + Rec, 'sync_messages.txt')).readlines()
+
+        Exp = str(int(Exp[10:]) - 1)
+        Rec = str(int(Rec[9:]) - 1)
+        Proc = Proc.split('.')[-2].split('-')[-1]
+        if '_' in Proc: Proc = Proc.split('_')[0]
+
+        # Info = literal_eval(open(InfoFiles[F]).read())
+        # ProcIndex = [Info['continuous'].index(_) for _ in Info['continuous']
+        #              if str(_['recorded_processor_id']) == Proc][0]
+
+        if Proc not in event_data.keys(): event_data[Proc], timing_data[Proc] = {}, {}
+        if Exp not in event_data[Proc]: event_data[Proc][Exp], timing_data[Proc][Exp] = {}, {}
+        if Rec not in event_data[Proc][Exp]: event_data[Proc][Exp][Rec], timing_data[Proc][Exp][Rec] = {}, {}
+
+        timing_data[Proc][Exp][Rec]['Rate'] = sync_file[1][re.search('@', sync_file[1]).span()[1]:re.search('Hz', sync_file[1]).span()[0]]
+        timing_data[Proc][Exp][Rec]['start_time'] = sync_file[1][re.search('start time: ', sync_file[1]).span()[1]:re.search('@[0-9]*Hz', sync_file[1]).span()[0]]
+
+        if Experiment:
+            if int(Exp) != Experiment - 1: continue
+
+        if Recording:
+            if int(Rec) != Recording - 1: continue
+
+        if Processor:
+            if Proc != Processor: continue
+
+        event_data[Proc][Exp][Rec][npy_file[:-4]] = np.load(File)
+
+    return event_data, timing_data
+
 if __name__ == '__main__':
-     Data, Rate = Load(r'C:\OpenEphys\Rat613placestimtest__2020-07-29_16-51-08')
+    base_dir = r'/data/Working/Opto/Jackie671/Jackie_placestim_day2/Jackie_PRE_2020-10-07_10-48-13'
+    Data, Rate = Load(base_dir, Processor='100')
     
